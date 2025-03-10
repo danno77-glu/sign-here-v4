@@ -16,7 +16,6 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [context, setContext] = useState<CanvasRenderingContext2D | null>(null);
-  const [name, setName] = useState('');
   const [lastPoint, setLastPoint] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -130,22 +129,6 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
     context.fillStyle = '#000';
   };
 
-  const generateSignature = () => {
-    if (!context || !canvasRef.current || !name.trim()) return;
-
-    clear();
-
-    const fontSize = Math.min(50, canvasRef.current.width / (name.length * 0.7));
-    context.font = `italic ${fontSize}px "Brush Script MT", "Dancing Script", cursive`;
-    context.fillStyle = '#000';
-
-    const textMetrics = context.measureText(name);
-    const x = (canvasRef.current.width - textMetrics.width) / 2;
-    const y = canvasRef.current.height / 2;
-
-    context.fillText(name, x, y);
-  };
-
   const saveSignature = () => {
     if (!canvasRef.current) return;
 
@@ -167,31 +150,10 @@ export const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
 
   return (
     <div className="flex flex-col items-center space-y-4">
-      <div className="w-full max-w-md">
-        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-          Enter your name
-        </label>
-        <div className="flex space-x-2">
-          <input
-            type="text"
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            placeholder="Type your name"
-          />
-          <button
-            onClick={generateSignature}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-            disabled={!name.trim()}
-          >
-            Generate
-          </button>
-        </div>
-      </div>
+      {/* Removed name input and generate button */}
 
       <div className="text-sm text-gray-500 text-center">
-        Draw your signature below or generate it from your name
+        Draw your signature below
       </div>
 
       <div className="border border-gray-300 rounded-lg bg-white overflow-hidden">
