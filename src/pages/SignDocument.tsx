@@ -218,18 +218,18 @@ export const SignDocument: React.FC = () => {
             setCurrentPage(field.position.pageNumber);
         }
     };
+// Corrected handleSignatureSave
+const handleSignatureSave = async (signatureData: string) => {
+  setFormValues(prev => ({
+    ...prev,
+    [activeField!]: signatureData
+  }));
+  setShowSignaturePad(false);
+  setActiveField(null);
+  setShowQRCode(false);
 
-const handleSignatureSave = async (signatureData: string) => { // Made async
-    setFormValues(prev => ({
-      ...prev,
-      [activeField!]: signatureData
-    }));
-    setShowSignaturePad(false);
-    setActiveField(null);
-    setShowQRCode(false);
-
-    // Call handleSave directly after updating formValues
-    await handleSave();
+  // Await the handleSave function
+  await handleSave();
 };
 
   const handleInputChange = (field: FormField, value: string) => {
@@ -255,7 +255,7 @@ const handleSignatureSave = async (signatureData: string) => { // Made async
     return true;
   };
 
-const handleSave = async () => { // Made async
+const handleSave = async () => {
   if (!template || !templateId) return;
   if (!validateForm()) return;
 
@@ -279,10 +279,10 @@ const handleSave = async () => { // Made async
       const newSignedDocument = await getSignedDocument(documentId);
       setSignedDocument(newSignedDocument);
 
-      // If on mobile, set mobileSignatureComplete to true AFTER successful save
-      //if (isMobile) {
-      //  setMobileSignatureComplete(true);
-      //}
+      // If on mobile, set success to true AFTER successful save
+      if (isMobile) {
+        setSuccess(true);
+      }
     } else {
       throw new Error("Failed to retrieve the signed document ID.");
     }
