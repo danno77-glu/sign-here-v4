@@ -49,7 +49,10 @@ const downloadSignedPdf = async (doc: SignedDocument) => {
         .from('templates')
         .download(doc.template.file_path);
 
-      if (downloadError) throw downloadError;
+      if (downloadError) {
+        console.error("Download error:", downloadError);
+        throw downloadError;
+      }
       if (!pdfBytes) throw new Error('Could not download the file');
 
       const pdfDoc = await PDFDocument.load(await pdfBytes.arrayBuffer());
@@ -107,7 +110,6 @@ const downloadSignedPdf = async (doc: SignedDocument) => {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Error downloading document:', err);
-      // Consider showing an error to the user.
       throw err; // Re-throw to handle in calling function
     }
 };
@@ -131,6 +133,7 @@ const downloadSignedPdf = async (doc: SignedDocument) => {
         .single();
 
         if (error) {
+            console.error("Error fetching signed document:", error); // Added error logging
             throw error;
         }
         return data;
@@ -151,11 +154,12 @@ export const SignDocument: React.FC = () => {
   const [showQRCode, setShowQRCode] = useState(false);
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
   const pdfViewerRef = useRef<any>(null);
-    const [signedDocument, setSignedDocument] = useState<any | null>(null); //using any temporarily
+    const [signedDocument, setSignedDocument] = useState<any | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-    const [searchParams] = useSearchParams(); // Get query parameters
+    const [searchParams] = useSearchParams();
     const isSigningMode = searchParams.get('mode') === 'sign';
-    //const [mobileSignatureComplete, setMobileSignatureComplete] = useState(false); // Removed
+    const [isMobileSaving, setIsMobileSaving] = useState(false); // Separate mobile saving state
+
 
     useEffect(() => {
     const handleResize = () => {
@@ -172,7 +176,7 @@ export const SignDocument: React.FC = () => {
     }
   }, [templateId]);
 
-  // useEffect to scroll to the current page whenever currentPage changes
+
   useEffect(() => {
     if (pdfViewerRef.current && currentPage) {
       pdfViewerRef.current.scrollToPage(currentPage);
@@ -207,7 +211,6 @@ export const SignDocument: React.FC = () => {
     const handleFieldClick = (field: FormField, event: React.MouseEvent) => {
         if (field.type === 'signature') {
             setActiveField(field.label);
-            // Only show the signature pad if on mobile, otherwise, proceed as before
             if (isMobile) {
                 setShowSignaturePad(true);
                 setShowQRCode(false);
@@ -221,17 +224,18 @@ export const SignDocument: React.FC = () => {
 
 // Corrected handleSignatureSave
 const handleSignatureSave = async (signatureData: string) => {
+  console.log("handleSignatureSave called");
   const newFormValues = {
     ...formValues,
     [activeField!]: signatureData,
   };
-  setFormValues(newFormValues); // Update formValues FIRST
+  setFormValues(newFormValues);
   setShowSignaturePad(false);
   setActiveField(null);
   setShowQRCode(false);
 
   // Call handleSave with the updated form values
-  await handleSave(newFormValues); // Pass newFormValues
+  await handleSave(newFormValues);
 };
 
   const handleInputChange = (field: FormField, value: string) => {
@@ -263,9 +267,13 @@ const handleSave = async (formValues: FormValues) => {
   if (!validateForm()) return;
 
   setIsSaving(true);
+  if (isMobile) {
+    setIsMobileSaving(true); // Set mobile-specific saving state
+  }
   setError(null);
 
   try {
+    console.log("handleSave called with formValues:", formValues);
     const { data, error: saveError } = await supabase
       .from('signed_documents')
       .insert([{
@@ -275,22 +283,27 @@ const handleSave = async (formValues: FormValues) => {
       }])
       .select();
 
-    if (saveError) throw saveError;
+      if (saveError) {
+        console.error("Supabase insert error:", saveError);
+        throw new Error("Failed to save signature: " + saveError.message);
+      }
+
 
     if (data && data.length > 0 && data[0].id) {
-      // If on mobile, set success to true AFTER successful save
-      if (isMobile) {
-        setSuccess(true);
-      }
+        console.log("Document saved successfully, ID:", data[0].id);
+        const documentId = data[0].id;
+        const newSignedDocument = await getSignedDocument(documentId);
+        setSignedDocument(newSignedDocument);
     } else {
       throw new Error("Failed to retrieve the signed document ID.");
     }
 
-  } catch (err) {
+  } catch (err:any) {
     console.error('Error saving document:', err);
-    setError('Failed to save the document. Please try again.');
+    setError(err.message || 'Failed to save the document. Please try again.');
   } finally {
     setIsSaving(false);
+    setIsMobileSaving(false); // Reset mobile saving state
   }
 };
 
@@ -313,25 +326,27 @@ const handleSave = async (formValues: FormValues) => {
     }
   };
 
-// Corrected real-time update logic
+// Subscribe to real-time changes on the signed_documents table and await getSignedDocument
 useEffect(() => {
-  const channel = supabase
-    .channel('public:signed_documents')
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'signed_documents' }, async (payload) => {
-      if (payload.new.template_id === templateId) {
-        const updatedDocument = await getSignedDocument(payload.new.id);
-        if (updatedDocument) {
-          setSignedDocument(updatedDocument);
-          // DO NOT update formValues here.  It's already updated locally.
-          setSuccess(true); // Set success to true when a new document is inserted and fetched
-        }
-      }
-    })
-    .subscribe();
+    const channel = supabase
+        .channel('public:signed_documents')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'signed_documents' }, async (payload) => {
+            console.log("Real-time update received:", payload);
+            if (payload.new.template_id === templateId) {
+                const updatedDocument = await getSignedDocument(payload.new.id);
+                if (updatedDocument) {
+                    console.log("Fetched updated document:", updatedDocument);
+                    setSignedDocument(updatedDocument);
+                    setFormValues(updatedDocument.form_values); // Correctly update formValues
+                    setSuccess(true);
+                }
+            }
+        })
+        .subscribe();
 
-  return () => {
-    supabase.removeChannel(channel);
-  };
+    return () => {
+        supabase.removeChannel(channel);
+    };
 }, [templateId]);
 
 
@@ -339,7 +354,7 @@ useEffect(() => {
         return (
           <>
           {success ? (
-            <MobileSignatureConfirmation />
+            <MobileSignatureConfirmation isSaving={isMobileSaving} />
           ) : (
             <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-4">
               <h2 className="text-lg font-semibold mb-4">Add Your Signature</h2>
