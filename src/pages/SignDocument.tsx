@@ -225,13 +225,13 @@ const handleSignatureSave = async (signatureData: string) => {
     ...formValues,
     [activeField!]: signatureData,
   };
-  setFormValues(newFormValues);
+  setFormValues(newFormValues); // Update formValues FIRST
   setShowSignaturePad(false);
   setActiveField(null);
   setShowQRCode(false);
 
   // Call handleSave with the updated form values
-  await handleSave(newFormValues);
+  await handleSave(newFormValues); // Pass newFormValues
 };
 
   const handleInputChange = (field: FormField, value: string) => {
@@ -278,10 +278,6 @@ const handleSave = async (formValues: FormValues) => {
     if (saveError) throw saveError;
 
     if (data && data.length > 0 && data[0].id) {
-      const documentId = data[0].id;
-      const newSignedDocument = await getSignedDocument(documentId);
-      setSignedDocument(newSignedDocument);
-
       // If on mobile, set success to true AFTER successful save
       if (isMobile) {
         setSuccess(true);
@@ -317,28 +313,25 @@ const handleSave = async (formValues: FormValues) => {
     }
   };
 
-// Subscribe to real-time changes on the signed_documents table and await getSignedDocument
+// Corrected real-time update logic
 useEffect(() => {
-    const channel = supabase
-        .channel('public:signed_documents')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'signed_documents' }, async (payload) => {
-            if (payload.new.template_id === templateId) {
-                const updatedDocument = await getSignedDocument(payload.new.id); // Await here
-                if (updatedDocument) {
-                    setSignedDocument(updatedDocument);
-                    setFormValues(prevFormValues => ({
-                        ...prevFormValues,
-                        ...updatedDocument.form_values, // Use updated values
-                    }));
-                    setSuccess(true); // Set success to true when a new document is inserted and fetched
-                }
-            }
-        })
-        .subscribe();
+  const channel = supabase
+    .channel('public:signed_documents')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'signed_documents' }, async (payload) => {
+      if (payload.new.template_id === templateId) {
+        const updatedDocument = await getSignedDocument(payload.new.id);
+        if (updatedDocument) {
+          setSignedDocument(updatedDocument);
+          // DO NOT update formValues here.  It's already updated locally.
+          setSuccess(true); // Set success to true when a new document is inserted and fetched
+        }
+      }
+    })
+    .subscribe();
 
-    return () => {
-        supabase.removeChannel(channel);
-    };
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }, [templateId]);
 
 
