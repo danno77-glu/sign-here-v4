@@ -107,8 +107,7 @@ const downloadSignedPdf = async (doc: SignedDocument) => {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Error downloading document:', err);
-      // Consider showing an error to the user.
-      throw err; // Re-throw to handle in calling function
+      throw err;
     }
 };
 
@@ -151,11 +150,11 @@ export const SignDocument: React.FC = () => {
   const [showQRCode, setShowQRCode] = useState(false);
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
   const pdfViewerRef = useRef<any>(null);
-    const [signedDocument, setSignedDocument] = useState<any | null>(null); //using any temporarily
+    const [signedDocument, setSignedDocument] = useState<any | null>(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-    const [searchParams] = useSearchParams(); // Get query parameters
+    const [searchParams] = useSearchParams();
     const isSigningMode = searchParams.get('mode') === 'sign';
-    //const [mobileSignatureComplete, setMobileSignatureComplete] = useState(false); // Removed
+
 
     useEffect(() => {
     const handleResize = () => {
@@ -172,7 +171,7 @@ export const SignDocument: React.FC = () => {
     }
   }, [templateId]);
 
-  // useEffect to scroll to the current page whenever currentPage changes
+
   useEffect(() => {
     if (pdfViewerRef.current && currentPage) {
       pdfViewerRef.current.scrollToPage(currentPage);
@@ -207,7 +206,6 @@ export const SignDocument: React.FC = () => {
     const handleFieldClick = (field: FormField, event: React.MouseEvent) => {
         if (field.type === 'signature') {
             setActiveField(field.label);
-            // Only show the signature pad if on mobile, otherwise, proceed as before
             if (isMobile) {
                 setShowSignaturePad(true);
                 setShowQRCode(false);
@@ -218,18 +216,20 @@ export const SignDocument: React.FC = () => {
             setCurrentPage(field.position.pageNumber);
         }
     };
+
 // Corrected handleSignatureSave
 const handleSignatureSave = async (signatureData: string) => {
-  setFormValues(prev => ({
-    ...prev,
-    [activeField!]: signatureData
-  }));
+  const newFormValues = {
+    ...formValues,
+    [activeField!]: signatureData,
+  };
+  setFormValues(newFormValues);
   setShowSignaturePad(false);
   setActiveField(null);
   setShowQRCode(false);
 
-  // Await the handleSave function
-  await handleSave();
+  // Call handleSave with the updated form values
+  await handleSave(newFormValues);
 };
 
   const handleInputChange = (field: FormField, value: string) => {
@@ -255,7 +255,8 @@ const handleSignatureSave = async (signatureData: string) => {
     return true;
   };
 
-const handleSave = async () => {
+// Corrected handleSave
+const handleSave = async (formValues: FormValues) => {
   if (!template || !templateId) return;
   if (!validateForm()) return;
 
@@ -267,7 +268,7 @@ const handleSave = async () => {
       .from('signed_documents')
       .insert([{
         template_id: templateId,
-        form_values: formValues,
+        form_values: formValues, // Use the passed-in formValues
         user_id: null
       }])
       .select();
@@ -275,10 +276,6 @@ const handleSave = async () => {
     if (saveError) throw saveError;
 
     if (data && data.length > 0 && data[0].id) {
-      const documentId = data[0].id;
-      const newSignedDocument = await getSignedDocument(documentId);
-      setSignedDocument(newSignedDocument);
-
       // If on mobile, set success to true AFTER successful save
       if (isMobile) {
         setSuccess(true);
