@@ -338,18 +338,21 @@ useEffect(() => {
     };
 }, [templateId]);
 
-// Early exit for mobile signing mode
-if (isMobile && isSigningMode) {
-    return success ? (
-        <MobileSignatureConfirmation />
-    ) : (
-        <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-4">
-            <h2 className="text-lg font-semibold mb-4">Add Your Signature</h2>
-            <SignatureCanvas onSave={handleSignatureSave} onCancel={() => navigate(`/sign/${templateId}`)} width={window.innerWidth * 0.8} height={300} />
-        </div>
-    );
-}
 
+    if (isMobile && isSigningMode) {
+        return (
+          <>
+          {success ? (
+            <MobileSignatureConfirmation />
+          ) : (
+            <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-4">
+              <h2 className="text-lg font-semibold mb-4">Add Your Signature</h2>
+              <SignatureCanvas onSave={handleSignatureSave} onCancel={() => navigate(`/sign/${templateId}`)} width={window.innerWidth * 0.8} height={300} />
+            </div>
+          )}
+        </>
+        );
+    }
 
   if (!template || !pdfUrl) {
     return (
@@ -542,7 +545,7 @@ if (isMobile && isSigningMode) {
                 <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
                   <h4 className="text-center text-gray-700 mb-4">Scan to Sign</h4>
                   <div className="flex justify-center">
-                    <QRCode value={`https://dmdsign.netlify.app/sign/${templateId}/complete?mode=sign`} size={192} level="H" />
+                    <QRCode value={`https://sign4u.netlify.app/sign/${templateId}/complete?mode=sign`} size={192} level="H" />
                   </div>
                   <button
                     onClick={() => {
