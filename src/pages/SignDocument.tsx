@@ -107,7 +107,8 @@ const downloadSignedPdf = async (doc: SignedDocument) => {
       URL.revokeObjectURL(url);
     } catch (err) {
       console.error('Error downloading document:', err);
-      throw err;
+      // Consider showing an error to the user.
+      throw err; // Re-throw to handle in calling function
     }
 };
 
@@ -150,11 +151,11 @@ export const SignDocument: React.FC = () => {
   const [showQRCode, setShowQRCode] = useState(false);
   const [currentFieldIndex, setCurrentFieldIndex] = useState(0);
   const pdfViewerRef = useRef<any>(null);
-    const [signedDocument, setSignedDocument] = useState<any | null>(null);
+    const [signedDocument, setSignedDocument] = useState<any | null>(null); //using any temporarily
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
-    const [searchParams] = useSearchParams();
+    const [searchParams] = useSearchParams(); // Get query parameters
     const isSigningMode = searchParams.get('mode') === 'sign';
-
+    //const [mobileSignatureComplete, setMobileSignatureComplete] = useState(false); // Removed
 
     useEffect(() => {
     const handleResize = () => {
@@ -171,7 +172,7 @@ export const SignDocument: React.FC = () => {
     }
   }, [templateId]);
 
-
+  // useEffect to scroll to the current page whenever currentPage changes
   useEffect(() => {
     if (pdfViewerRef.current && currentPage) {
       pdfViewerRef.current.scrollToPage(currentPage);
@@ -206,6 +207,7 @@ export const SignDocument: React.FC = () => {
     const handleFieldClick = (field: FormField, event: React.MouseEvent) => {
         if (field.type === 'signature') {
             setActiveField(field.label);
+            // Only show the signature pad if on mobile, otherwise, proceed as before
             if (isMobile) {
                 setShowSignaturePad(true);
                 setShowQRCode(false);
@@ -255,7 +257,7 @@ const handleSignatureSave = async (signatureData: string) => {
     return true;
   };
 
-// Corrected handleSave
+// Corrected handleSave to accept formValues
 const handleSave = async (formValues: FormValues) => {
   if (!template || !templateId) return;
   if (!validateForm()) return;
@@ -276,6 +278,10 @@ const handleSave = async (formValues: FormValues) => {
     if (saveError) throw saveError;
 
     if (data && data.length > 0 && data[0].id) {
+      const documentId = data[0].id;
+      const newSignedDocument = await getSignedDocument(documentId);
+      setSignedDocument(newSignedDocument);
+
       // If on mobile, set success to true AFTER successful save
       if (isMobile) {
         setSuccess(true);
